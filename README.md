@@ -9,7 +9,7 @@ A simple Node.js CRUD application using MySQL, Dockerized for easy deployment.
 - [Docker](https://docs.docker.com/get-docker/) installed on your machine.
 - [Git](https://git-scm.com/) installed.
 
-### Installation
+### Building from Source
 
 1.  **Clone the repository:**
     ```bash
@@ -22,7 +22,7 @@ A simple Node.js CRUD application using MySQL, Dockerized for easy deployment.
     ```bash
     cp .env.example .env
     ```
-    You can adjust the values in `.env` if needed, but the defaults should work for local development.
+    Modify the environment variables in `.env` as needed for your database connection.
 
 3.  **Run with Docker Compose:**
     Build and start the containers:
@@ -41,26 +41,37 @@ A simple Node.js CRUD application using MySQL, Dockerized for easy deployment.
 -   `PUT /api/users/:id`: Update user
 -   `DELETE /api/users/:id`: Delete user
 
-## Docker Hub Quickstart
+## Starting from an Image
 
 To run this application using the pre-built image from Docker Hub:
 
 1.  **Pull the image:**
     ```bash
-    docker pull <your-dockerhub-username>/node-crud-app:latest
+    docker pull nvme1n1/simple-crud-node-app:anyonecanuse
     ```
 
-2.  **Run the container:**
-    You must provide the necessary environment variables for the database connection.
-    ```bash
-    docker run -d -p 3000:3000 \
-      -e DB_HOST=host.docker.internal \
-      -e DB_USER=root \
-      -e DB_PASSWORD=password \
-      -e DB_NAME=crud_app \
-      -e PORT=3000 \
-      <your-dockerhub-username>/node-crud-app:latest
-    ```
-    *Note: `host.docker.internal` allows the container to access a database running on your host machine (e.g., if you have MySQL running locally outside Docker).*
+2.  **Set up with Docker Compose:**
+    The necessary configuration files (`docker-compose.yml`, `.env.example`, and `schema.sql`) are already provided in this repository.
 
-    If you are running MySQL in another Docker container, ensure both are on the same network and use the MySQL container name as `DB_HOST`.
+    **Step-by-step instructions:**
+    1.  **Create your environment file:**
+        ```bash
+        cp .env.example .env
+        ```
+        Modify the environment variables in `.env` as needed for your database connection.
+    2.  **Use the pre-built image:**
+        Open the `docker-compose.yml` file and find the `app` service. Change the `build: .` line to point to the pre-built image:
+        ```yaml
+        services:
+          app:
+            image: nvme1n1/simple-crud-node-app:anyonecanuse
+            # build: .  <-- Replace this line
+            ...
+        ```
+    3.  **Start the services:**
+        ```bash
+        docker compose up -d
+        ```
+
+3.  **Access the application:**
+    Open your browser and navigate to [http://localhost:3000](http://localhost:3000).
