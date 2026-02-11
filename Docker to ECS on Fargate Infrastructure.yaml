@@ -1,0 +1,149 @@
+AWSTemplateFormatVersion: 2012-10-09
+Description: AWS CloudFormation template to deploy a Docker container on Amazon ECS using Fargate.
+
+Parameters:
+  VPCCIDR:
+    Type: String
+  SubnetCount:
+    Type: Number
+  SubnetBits:
+    Type: Number
+  ECSCluster:
+    Type: String
+  ECRregistry:
+    Type: String
+  ALBInboundPort:
+    Type: Number
+  AppContainerPort:
+    Type: Number
+  DBPort:
+    Type: Number
+
+Resources:
+  DemoVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPCCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPC
+
+  # Public Subnets
+  ALBSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DemoVPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Select [ 0, !Cidr [ !GetAtt DemoVPC.CidrBlock, !Ref SubnetCount, !Ref SubnetBits ] ]
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-ALBSubnet1
+
+  ALBSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DemoVPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Select [ 1, !Cidr [ !GetAtt DemoVPC.CidrBlock, !Ref SubnetCount, !Ref SubnetBits ] ]
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-ALBSubnet2
+  
+  FargateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      VpcId: !Ref DemoVPC
+      AvailabilityZone : !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Select [ 2, !Cidr [ !GetAtt DemoVPC.CidrBlock, !Ref SubnetCount, !Ref SubnetBits ] ]
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-FargateSubnet1
+
+  FargateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DemoVPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Select [ 3, !Cidr [ !GetAtt DemoVPC.CidrBlock, !Ref SubnetCount, !Ref SubnetBits ] ]
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-FargateSubnet2
+
+  RDSSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DemoVPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Select [ 4, !Cidr [ !GetAtt DemoVPC.CidrBlock, !Ref SubnetCount, !Ref SubnetBits ] ]
+      Tags: 
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-RDSSubnet1
+
+  RDSSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DemoVPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Select [ 5, !Cidr [ !GetAtt DemoVPC.CidrBlock, !Ref SubnetCount, !Ref SubnetBits ] ]
+      Tags: 
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-RDSSubnet2
+
+  ALBSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for the ALB to allow web traffic (HTTP).
+      SecurityGroupIngress: 
+        - IpProtocol: tcp
+          FromPort: !Ref ALBInboundPort
+          ToPort: !Ref ALBInboundPort
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref DemoVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-ALBSG
+
+  FargateTaskSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ECS Fargate tasks to allow inbound traffic from the ALB.
+      VpcId: !Ref DemoVPC
+      SecurityGroupIngress: 
+        - IpProtocol: tcp
+          FromPort: !Ref AppContainerPort
+          ToPort: !Ref AppContainerPort
+          SourceSecurityGroupId: !Ref ALBSG
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-FargateTaskSG
+
+  RDSSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for RDS MySQL to allow traffic from the Fargate task security group on port 3306.
+      VpcId: !Ref DemoVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref DBPort
+          ToPort: !Ref DBPort
+          SourceSecurityGroupId: !Ref FargateTaskSG
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-RDSSG
+
+  DemoRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref DemoVPC
+      Tags:
+        - Key: Name 
+          Value: !Sub ${AWS::StackName}-RouteTable
+
+  DemoRoutes:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref DemoRouteTable
+       
+
