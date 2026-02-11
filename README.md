@@ -4,7 +4,7 @@ A simple Node.js CRUD application using MySQL, Dockerized for easy deployment.
 
 ## Architecture Diagram
 
-![Architecture Diagram](Docker%20and%20ECS%20Fargate%20.drawio.svg)
+![Architecture Diagram](Docker%20and%20ECS%20Fargate%20architecture%20.drawio.svg)
 
 ## Getting Started
 
