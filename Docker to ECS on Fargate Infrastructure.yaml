@@ -311,8 +311,8 @@ Resources:
       PrivateDnsEnabled: true
       VpcId: !Ref DemoVPC
       SubnetIds:
-        - FargateSubnet1
-        - FargateSubnet2
+        - !Ref FargateSubnet1
+        - !Ref FargateSubnet2
       SecurityGroupIds:
         - !Ref VPCInterfaceEndpointsSG
       Tags:
