@@ -375,7 +375,7 @@ Resources:
   HTTPListeronALB:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
-      LoadBalancerArn: !Ref ALB
+      LoadBalancerArn: !Ref DemoALB
       Protocol: HTTP
       Port: !Ref ALBInboundPort
       DefaultActions:
