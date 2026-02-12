@@ -8,7 +8,7 @@ Parameters:
     Type: Number
   SubnetBits:
     Type: Number
-  ECSCluster:
+  ECSCluster1:
     Type: String
   ECRregistry:
     Type: String
@@ -304,7 +304,7 @@ Resources:
           Value: !Sub ${AWS::StackName}-VPCInterfaceEndpointDKR
 
   VPCInterfaceEndpointECRAPI:
-    Type: AWS::VPC::VPCEndpoint
+    Type: AWS::EC2::VPCEndpoint
     Properties:
       VpcEndpointType: Interface
       ServiceName: !Sub com.amazonaws.${AWS::Region}.ecr.api
@@ -320,7 +320,7 @@ Resources:
           Value: !Sub ${AWS::StackName}-VPCInterfaceEndpointAPI
 
   VPCInterfaceEndpointCWLogs:
-    Type: AWS::VPC::VPCEndpoint
+    Type: AWS::EC2::VPCEndpoint
     Properties:
       VpcEndpointType: Interface
       ServiceName: !Sub com.amazonaws.${AWS::Region}.logs
