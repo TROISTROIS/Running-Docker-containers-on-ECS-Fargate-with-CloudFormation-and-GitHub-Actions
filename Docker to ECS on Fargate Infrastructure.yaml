@@ -94,58 +94,118 @@ Resources:
   ALBSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security group for the ALB to allow web traffic (HTTP).
-      SecurityGroupIngress: 
-        - IpProtocol: tcp
-          FromPort: !Ref ALBInboundPort
-          ToPort: !Ref ALBInboundPort
-          CidrIp: 0.0.0.0/0
+      GroupDescription: Security group for the ALB.
       VpcId: !Ref DemoVPC
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-ALBSG
 
+  ALBSGIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Inbound rule on the ALB SG to allow web traffic (HTTP).
+      GroupId: !Ref ALBSG
+      IpProtocol: tcp
+      FromPort: !Ref ALBInboundPort
+      ToPort: !Ref ALBInboundPort
+      CidrIp: 0.0.0.0/0
+
+  ALBSGEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      Description: Outbound rule on the ALB SG to allow traffic out to FargateSG.
+      GroupId: !Ref ALBSG
+      IpProtocol: tcp
+      FromPort: !Ref AppContainerPort
+      ToPort: !Ref AppContainerPort
+      DestinationSecurityGroupId: !Ref FargateTaskSG
+  
   FargateTaskSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security group for ECS Fargate tasks to allow inbound traffic from the ALB.
+      GroupDescription: Security group for ECS Fargate tasks.
       VpcId: !Ref DemoVPC
-      SecurityGroupIngress: 
-        - IpProtocol: tcp
-          FromPort: !Ref AppContainerPort
-          ToPort: !Ref AppContainerPort
-          SourceSecurityGroupId: !Ref ALBSG
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-FargateTaskSG
 
+  FargateTaskSGIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Inbound rule on the ECS Fargate tasks SG to allow inbound traffic from the ALB.
+      GroupId: !Ref FargateTaskSG
+      IpProtocol: tcp
+      FromPort: !Ref AppContainerPort
+      ToPort: !Ref AppContainerPort
+      SourceSecurityGroupId: !Ref ALBSG
+
+  FargateTaskSGEgressToRDS:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      Description: Outbound rule on the ECS Fargate tasks SG to allow outbound traffic from the FargateTaskSG to RDS on port 3306.
+      GroupId: !Ref FargateTaskSG
+      IpProtocol: tcp
+      FromPort: !Ref DBPort
+      ToPort: !Ref DBPort
+      DestinationSecurityGroupId: !Ref RDSSG
+
+  FargateTaskSGEgressToVPCInterfaceEndpoint:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      Description: Outbound rule on the ECS Fargate tasks SG to allow outbound traffic from the FargateTaskSG to VPCInterfaceEndpointSG on port 443.
+      GroupId: !Ref FargateTaskSG
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      DestinationSecurityGroupId: !Ref VPCInterfaceEndpointsSG
+
+  FargateTaskSGEgressToS3GatewayEndpoint:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      Description: Outbound rule on Fargate SG to allow traffic to S3 via Prefix List on port 443.
+      GroupId: !Ref FargateTaskSG
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443 
+      DestinationPrefixListId: !GetAtt VPCS3GWEndpoint.PrefixListId
+
   VPCInterfaceEndpointsSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security group for ECR VPC Endpoints to allow inbound traffic on port 443 from ECS Fargate security group.
+      GroupDescription: Security group for ECR VPC Endpoints.
       VpcId: !Ref DemoVPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          SourceSecurityGroupId: !Ref FargateTaskSG
       Tags:
         - Key: Name
-          Value: !Sub ${AWS::StackName}-VPCEndpointsSG
+          Value: !Sub ${AWS::StackName}-VPCEndpointsSG 
+
+  VPCInterfaceEndpointsSGIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Inbound rule on the VPCInterfaceEndpointsSG to allow inbound traffic on port 443 from ECS Fargate security group.
+      GroupId: !Ref VPCInterfaceEndpointsSG
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      SourceSecurityGroupId: !Ref FargateTaskSG
 
   RDSSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security group for RDS MySQL to allow traffic from the Fargate task security group on port 3306.
+      GroupDescription: Security group for RDS MySQL.
       VpcId: !Ref DemoVPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: !Ref DBPort
-          ToPort: !Ref DBPort
-          SourceSecurityGroupId: !Ref FargateTaskSG
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-RDSSG
+
+  RDSSGIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Inbound rule for the RDSSG to allow traffic from the Fargate task security group on port 3306.
+      GroupId: !Ref RDSSG
+      IpProtocol: tcp
+      FromPort: !Ref DBPort
+      ToPort: !Ref DBPort
+      SourceSecurityGroupId: !Ref FargateTaskSG
 
   DemoIGW:
     Type: AWS::EC2::InternetGateway
