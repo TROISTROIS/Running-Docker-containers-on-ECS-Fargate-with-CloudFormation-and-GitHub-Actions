@@ -357,10 +357,42 @@ Resources:
         - Key: Name
           Value: !Sub ${AWS::StackName}-VPCS3GatewayEndpoint
 
+  DemoALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${AWS::StackName}-ALB
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref ALBSG
+      Subnets:
+        - !Ref ALBSubnet1
+        - !Ref ALBSubnet2
+      Type: application
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-LB
 
-
-
-
-
-       
-
+  HTTPListeronALB:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Protocol: HTTP
+      Port: !Ref ALBInboundPort
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ALBTargetGroup
+  
+  ALBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${AWS::StackName}-TargetGroup
+      Port: !Ref AppContainerPort
+      Protocol: HTTP
+      VpcId: !Ref DemoVPC
+      TargetType: ip
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 60
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-ALBTargetGroup
