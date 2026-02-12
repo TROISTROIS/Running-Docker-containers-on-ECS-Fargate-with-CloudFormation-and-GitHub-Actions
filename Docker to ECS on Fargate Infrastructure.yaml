@@ -119,7 +119,7 @@ Resources:
         - Key: Name
           Value: !Sub ${AWS::StackName}-FargateTaskSG
 
-  VPCEndpointSG:
+  VPCInterfaceEndpointsSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Security group for ECR VPC Endpoints to allow inbound traffic on port 443 from ECS Fargate security group.
@@ -131,7 +131,7 @@ Resources:
           SourceSecurityGroupId: !Ref FargateTaskSG
       Tags:
         - Key: Name
-          Value: !Sub ${AWS::StackName}-VPCEndpointSG
+          Value: !Sub ${AWS::StackName}-VPCEndpointsSG
 
   RDSSG:
     Type: AWS::EC2::SecurityGroup
@@ -160,7 +160,7 @@ Resources:
       InternetGatewayId: !Ref DemoIGW
       VpcId: !Ref DemoVPC
 
-  DemoRouteTable:
+  PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref DemoVPC
@@ -172,15 +172,99 @@ Resources:
     Type: AWS::EC2::Route
     DependsOn: DemoIGWAttachment
     Properties:
-      RouteTableId: !Ref DemoRouteTable
+      RouteTableId: !Ref PublicRouteTable
       GatewayId: !Ref DemoIGW
       DestinationCidrBlock: 0.0.0.0/0
 
-  DemoVPCEndpointDKR:
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref DemoVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateRouteTable1
+  
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref DemoVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateRouteTable2
+
+  VPCInterfaceEndpointECRDKR:
     Type: AWS::EC2::VPCEndpoint
     Properties:
       VpcEndpointType: Interface
-      ServiceName: com.amazonaws.{AWS::Region}.ecr.dkr
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ecr.dkr
+      PrivateDnsEnabled: true
+      VpcId: !Ref DemoVPC
+      SubnetIds:
+        - !Ref FargateSubnet1
+        - !Ref FargateSubnet2
+      SecurityGroupIds: 
+        - !Ref VPCInterfaceEndpointsSG
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPCInterfaceEndpointDKR
+
+  VPCInterfaceEndpointECRAPI:
+    Type: AWS::VPC::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ecr.api
+      PrivateDnsEnabled: true
+      VpcId: !Ref DemoVPC
+      SubnetIds:
+        - FargateSubnet1
+        - FargateSubnet2
+      SecurityGroupIds:
+        - !Ref VPCInterfaceEndpointsSG
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPCInterfaceEndpointAPI
+
+  VPCInterfaceEndpointCWLogs:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.logs
+      PrivateDnsEhnabled: true
+      VpcId: !Ref DemoVPC
+      SubnetIds: 
+        - FargateSubnet1
+        - FargateSubnet2
+      SecurityGroupIds:
+        - !Ref VPCInterfaceEndpointsSG
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPCInterfaceEndpointCWLogs 
+
+  VPCS3GWEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Gateway
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
+      VpcId: !Ref DemoVPC
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action:
+              - s3.GetObject
+            Resource:
+              - !Sub arn:aws:s3:::prod-${AWS::Region}-starport-layer-bucket/*
+      RouteTableIds:
+        - !Ref PrivateRouteTable1
+        - !Ref PrivateRouteTable2
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPCS3GatewayEndpoint
+
+
+
+
 
 
        
