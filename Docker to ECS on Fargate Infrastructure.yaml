@@ -119,6 +119,20 @@ Resources:
         - Key: Name
           Value: !Sub ${AWS::StackName}-FargateTaskSG
 
+  VPCEndpointSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ECR VPC Endpoints to allow inbound traffic on port 443 from ECS Fargate security group.
+      VpcId: !Ref DemoVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref FargateTaskSG
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPCEndpointSG
+
   RDSSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -133,6 +147,19 @@ Resources:
         - Key: Name
           Value: !Sub ${AWS::StackName}-RDSSG
 
+  DemoIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-IGW
+
+  DemoIGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref DemoIGW
+      VpcId: !Ref DemoVPC
+
   DemoRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -141,9 +168,20 @@ Resources:
         - Key: Name 
           Value: !Sub ${AWS::StackName}-RouteTable
 
-  DemoRoutes:
+  DemoRoute:
     Type: AWS::EC2::Route
+    DependsOn: DemoIGWAttachment
     Properties:
       RouteTableId: !Ref DemoRouteTable
+      GatewayId: !Ref DemoIGW
+      DestinationCidrBlock: 0.0.0.0/0
+
+  DemoVPCEndpointDKR:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: com.amazonaws.{AWS::Region}.ecr.dkr
+
+
        
 
