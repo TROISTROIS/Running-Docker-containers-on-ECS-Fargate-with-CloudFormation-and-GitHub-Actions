@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: 2012-10-09
+AWSTemplateFormatVersion: 2010-09-09
 Description: AWS CloudFormation template to deploy a Docker container on Amazon ECS using Fargate.
 
 Parameters:
@@ -30,7 +30,51 @@ Resources:
         - Key: Name
           Value: !Sub ${AWS::StackName}-VPC
 
-  # Public Subnets
+  DemoIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-IGW
+
+  DemoIGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref DemoIGW
+      VpcId: !Ref DemoVPC
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref DemoVPC
+      Tags:
+        - Key: Name 
+          Value: !Sub ${AWS::StackName}-RouteTable
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: DemoIGWAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      GatewayId: !Ref DemoIGW
+      DestinationCidrBlock: 0.0.0.0/0
+
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref DemoVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateRouteTable1
+  
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref DemoVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateRouteTable2
+
   ALBSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
@@ -41,6 +85,12 @@ Resources:
         - Key: Name
           Value: !Sub ${AWS::StackName}-ALBSubnet1
 
+  ALBSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      SubnetId: !Ref ALBSubnet1
+      RouteTableId: !Ref PublicRouteTable
+   
   ALBSubnet2:
     Type: AWS::EC2::Subnet
     Properties:
@@ -50,7 +100,13 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-ALBSubnet2
-  
+
+  ALBSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      SubnetId: !Ref ALBSubnet2
+      RouteTableId: !Ref PublicRouteTable 
+
   FargateSubnet1:
     Type: AWS::EC2::Subnet
     Properties: 
@@ -60,6 +116,12 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-FargateSubnet1
+
+  FargateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      SubnetId: !Ref FargateSubnet1
+      RouteTableId: !Ref PrivateRouteTable1 
 
   FargateSubnet2:
     Type: AWS::EC2::Subnet
@@ -71,6 +133,12 @@ Resources:
         - Key: Name
           Value: !Sub ${AWS::StackName}-FargateSubnet2
 
+  FargateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      SubnetId: !Ref FargateSubnet2
+      RouteTableId: !Ref PrivateRouteTable2
+
   RDSSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
@@ -81,6 +149,12 @@ Resources:
         - Key: Name
           Value: !Sub ${AWS::StackName}-RDSSubnet1
 
+  RDSSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      SubnetId: !Ref RDSSubnet1
+      RouteTableId: !Ref PrivateRouteTable1
+
   RDSSubnet2:
     Type: AWS::EC2::Subnet
     Properties:
@@ -90,6 +164,12 @@ Resources:
       Tags: 
         - Key: Name
           Value: !Sub ${AWS::StackName}-RDSSubnet2
+
+  RDSSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      SubnetId: !Ref RDSSubnet2
+      RouteTableId: !Ref PrivateRouteTable2
 
   ALBSG:
     Type: AWS::EC2::SecurityGroup
@@ -207,51 +287,6 @@ Resources:
       ToPort: !Ref DBPort
       SourceSecurityGroupId: !Ref FargateTaskSG
 
-  DemoIGW:
-    Type: AWS::EC2::InternetGateway
-    Properties:
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-IGW
-
-  DemoIGWAttachment:
-    Type: AWS::EC2::VPCGatewayAttachment
-    Properties:
-      InternetGatewayId: !Ref DemoIGW
-      VpcId: !Ref DemoVPC
-
-  PublicRouteTable:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref DemoVPC
-      Tags:
-        - Key: Name 
-          Value: !Sub ${AWS::StackName}-RouteTable
-
-  DemoRoute:
-    Type: AWS::EC2::Route
-    DependsOn: DemoIGWAttachment
-    Properties:
-      RouteTableId: !Ref PublicRouteTable
-      GatewayId: !Ref DemoIGW
-      DestinationCidrBlock: 0.0.0.0/0
-
-  PrivateRouteTable1:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref DemoVPC
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-PrivateRouteTable1
-  
-  PrivateRouteTable2:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref DemoVPC
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-PrivateRouteTable2
-
   VPCInterfaceEndpointECRDKR:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -285,15 +320,15 @@ Resources:
           Value: !Sub ${AWS::StackName}-VPCInterfaceEndpointAPI
 
   VPCInterfaceEndpointCWLogs:
-    Type: AWS::EC2::VPCEndpoint
+    Type: AWS::VPC::VPCEndpoint
     Properties:
       VpcEndpointType: Interface
       ServiceName: !Sub com.amazonaws.${AWS::Region}.logs
-      PrivateDnsEhnabled: true
+      PrivateDnsEnabled: true
       VpcId: !Ref DemoVPC
       SubnetIds: 
-        - FargateSubnet1
-        - FargateSubnet2
+        - !Ref FargateSubnet1
+        - !Ref FargateSubnet2
       SecurityGroupIds:
         - !Ref VPCInterfaceEndpointsSG
       Tags:
