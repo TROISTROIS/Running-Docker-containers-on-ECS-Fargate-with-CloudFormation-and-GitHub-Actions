@@ -72,16 +72,16 @@ Resources:
       ToPort: !Ref AppContainerPort
       DestinationSecurityGroupId: !Ref FargateTaskSG
  
-    DefaultTargetGroup:
-      Type: AWS::ElasticLoadBalancingV2::TargetGroup
-      Properties:
-        Name: !Sub ${AWS::StackName}-DefaultTargetGroup
-        Port: !Ref AppContainerPort
-        Protocol: HTTP
-        VpcId: !ImportValue VPC
-        Tags:
-          - Key: Name
-            Value: !Sub ${AWS::StackName}-defaultTargetGroup
+  DefaultTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${AWS::StackName}-DefaultTargetGroup
+      Port: !Ref AppContainerPort
+      Protocol: HTTP
+      VpcId: !ImportValue VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-defaultTargetGroup
 
   VPCInterfaceEndpointsSG:
     Type: AWS::EC2::SecurityGroup
@@ -275,7 +275,33 @@ Outputs:
       Name: DomainName
 
   CloudWatchLogGroup:
-      Description: CloudWatch Log Group
-      Value: !Ref CWLogsGroup
-      Export:
-        Name: CloudWatchLogGroup
+    Description: CloudWatch Log Group
+    Value: !GetAtt CWLogsGroup.Arn
+    Export:
+      Name: CloudWatchLogGroupArn
+
+  DKRVPCEndpoint:
+    Description: VPC Endpoint for Docker
+    Value: !Ref VPCInterfaceEndpointECRDKR
+    Export:
+      Name: VPCInterfaceEndpointECRDKR
+
+  APIVPCEndpoint:
+    Description: VPC Endpoint for ECRAPI Calls
+    Value: !Ref VPCInterfaceEndpointECRAPI
+    Export:
+      Name: VPCInterfaceEndpointECRAPI
+
+  CWVPCEndpoint:
+    Description: VPC Endpoint for CloudWatch Calls
+    Value: !Ref VPCInterfaceEndpointCWLogs
+    Export:
+      Name: VPCInterfaceEndpointCWLogs
+
+  ECR:
+    Description: ECR Repo
+    Value: !GetAtt DemoECR.Arn
+    Export:
+      Name: ECRArn
+
+  
