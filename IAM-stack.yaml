@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: AWS CloudFormation template to define IAM roles that containers need to interact with CloudWatch and ECR.
+
+Resources: 
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement: 
+          - Effect: Allow
+            Principal: 
+              Service: 
+                - ecs-tasks.amazonaws.com
+            Action:
+              - sts.AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: !Sub ${AWS::StackName}-Policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - ecr:BatchCheckLayerAvailability
+                Resource: ECR REPO NOT CREATED YET
+                Condition:
+                  StringEquals:
+                    aws:SourceVpce: 
+                      - !Ref VPCENDPOINTECRDKR
+                      - !Ref VPCENDPOINTECRAPI
+
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: LOG GROUP NOT CREATED YET
+                Condition:
+                  StringEquals:
+                    aws:SourceVpce: !ImportValue VPCENDPOINTCWLOGS
+
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    aws:SourceVpce: 
+                      - !Ref VPCENDPOINTECRDKR
+                      - !Ref VPCENDPOINTECRAPI
+
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: !Sub 'arn:aws:s3:::prod-${AWS::Region}-starport-layer-bucket/*'
+                Condition:
+                  StringEquals:
+                    aws:sourceVpc: !ImportValue VPC
+
+Outputs:
+  ECSTaskExecutionRole: 
+    Description: ECS Task Execution Role
+    Value: !GetAtt ECSTaskExecutionRole.Arn
+    Export:
+      Name: ECSTaskExecutionRole
