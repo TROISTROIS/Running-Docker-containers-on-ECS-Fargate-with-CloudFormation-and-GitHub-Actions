@@ -163,6 +163,28 @@ Resources:
     Properties: 
       SubnetId: !Ref RDSSubnet2
       RouteTableId: !Ref PrivateRouteTable2
+
+  VPCS3GWEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Gateway
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
+      VpcId: !Ref DemoVPC
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action:
+              - s3.GetObject
+            Resource:
+              - !Sub arn:aws:s3:::prod-${AWS::Region}-starport-layer-bucket/*
+      RouteTableIds:
+        - !Ref PrivateRouteTable1
+        - !Ref PrivateRouteTable2
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPCS3GatewayEndpoint
   
 Outputs:
   VPC:
@@ -175,34 +197,42 @@ Outputs:
     Description: Public Subnet 1
     Value: !Ref ALBSubnet1
     Export:
-      Name: PublicSubnet1
+      Name: ALBSubnet1
 
   PublicSubnet2:
     Description: Public Subnet 2
     Value: !Ref ALBSubnet2
     Export:
-      Name: PublicSubnet2
+      Name: ALBSubnet2
 
   PrivateSubnet1:
     Description: Private Subnet 1
     Value: !Ref FargateSubnet1
     Export:
-      Name: PrivateSubnet1
+      Name: FargateSubnet1
 
   PrivateSubnet2:
     Description: Private Subnet 2
     Value: !Ref FargateSubnet2
     Export:
-      Name: PrivateSubnet2
+      Name: FargateSubnet2
 
   PrivateSubnet3:
     Description: Private Subnet 3
     Value: !Ref RDSSubnet1
     Export:
-      Name: PrivateSubnet3
+      Name: RDSSubnet1
 
   PrivateSubnet4:
     Description: Private Subnet 4
     Value: !Ref RDSSubnet2
     Export:
-      Name: PrivateSubnet4
+      Name: RDSSubnet2
+
+PrefixListId:
+    Description: Prefix List Id
+    Value: !GetAtt VPCS3GWEndpoint.PrefixListId
+    Export:
+      Name: PrefixListId
+
+      !GetAtt VPCS3GWEndpoint.PrefixListId
