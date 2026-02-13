@@ -25,21 +25,21 @@ Resources:
                   - ecr:GetDownloadUrlForLayer
                   - ecr:BatchGetImage
                   - ecr:BatchCheckLayerAvailability
-                Resource: ECR REPO NOT CREATED YET
+                Resource: !ImportValue ECRArn
                 Condition:
                   StringEquals:
                     aws:SourceVpce: 
-                      - !Ref VPCENDPOINTECRDKR
-                      - !Ref VPCENDPOINTECRAPI
+                      - !ImportValue VPCInterfaceEndpointECRDKR
+                      - !ImportValue VPCInterfaceEndpointECRAPI
 
               - Effect: Allow
                 Action:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: LOG GROUP NOT CREATED YET
+                Resource: !ImportValue CloudWatchLogGroupArn
                 Condition:
                   StringEquals:
-                    aws:SourceVpce: !ImportValue VPCENDPOINTCWLOGS
+                    aws:SourceVpce: !ImportValue VPCInterfaceEndpointCWLogs
 
               - Effect: Allow
                 Action:
@@ -48,8 +48,8 @@ Resources:
                 Condition:
                   StringEquals:
                     aws:SourceVpce: 
-                      - !Ref VPCENDPOINTECRDKR
-                      - !Ref VPCENDPOINTECRAPI
+                      - !ImportValue VPCInterfaceEndpointECRDKR
+                      - !ImportValue VPCInterfaceEndpointECRAPI
 
               - Effect: Allow
                 Action:
