@@ -5,9 +5,9 @@ Parameters:
   VPCCIDR:
     Type: String
   SubnetCount:
-    Type: Number
+    Type: String
   SubnetBits:
-    Type: Number
+    Type: String
 
 Resources:
   DemoVPC:
@@ -228,11 +228,9 @@ Outputs:
     Value: !Ref RDSSubnet2
     Export:
       Name: RDSSubnet2
-
-PrefixListId:
+      
+  PrefixListId:
     Description: Prefix List Id
     Value: !GetAtt VPCS3GWEndpoint.PrefixListId
     Export:
       Name: PrefixListId
-
-      !GetAtt VPCS3GWEndpoint.PrefixListId
