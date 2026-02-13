@@ -91,7 +91,7 @@ Resources:
   ALBListenerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:
-      ListenerArn: !Ref HTTPListeneronALB
+      ListenerArn: !ImportValue Listener
       Priority: 1
       Conditions: 
         - Field: path-pattern
@@ -101,3 +101,9 @@ Resources:
         - TargetGroupArn: !Ref ALBTargetGroup
           Type: forward 
 
+Outputs:
+  APIEndpoint: 
+    Description: Project API Endpoint
+    Value: !Join ['',['http://', !ImportValue DomainName, '/api/users']]
+    Export:
+      Name: ProjectAPIEndpoint
