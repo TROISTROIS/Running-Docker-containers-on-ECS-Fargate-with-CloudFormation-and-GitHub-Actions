@@ -2,8 +2,6 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: AWS CloudFormation template to deploy app from ECR to Fargate.
 
 Parameters:
-  ALBInboundPort:
-    Type: Number
   AppContainerPort:
     Type: Number
   DBPort:
@@ -14,22 +12,22 @@ Resources:
     Type: AWS::ECS::TaskDefinition
     Properties:
       ContainerDefinitions:
-        Name: !Sub ${AWS::StackName}-DemoContainer
-        Image: IMAGEGOESHERE
-        PortMappings:
-          - ContainerPort: !Ref AppContainerPort
-            Protocol: tcp
-        LogConfiguration:
-          LogDriver: awslogs
-          Options:
-            awslogs-group: !ImportValue CloudWatchLogGroup
-            awslogs-region: !Ref ${AWS::Region}
-            awslogs-stream-prefix: demo-api
+        - Name: !Sub ${AWS::StackName}-DemoContainer
+          Image: ..
+          PortMappings:
+            - ContainerPort: !Ref AppContainerPort
+              Protocol: tcp
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !ImportValue CloudWatchLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: demo-api
       Family: !Sub ${AWS::StackName}-DemoContainer
       Cpu: 256
       Memory: 512
       NetworkMode: awsvpc
-      RequiresCapabilities:
+      RequiresCompatibilities:
         - FARGATE
       ExecutionRoleArn: !ImportValue ECSTaskExecutionRole
       TaskRoleArn: ..
@@ -41,27 +39,26 @@ Resources:
     Type: AWS::ECS::Service
     DependsOn: ALBListenerRule
     Properties:
-      Cluster: !Ref DemoECSCluster
+      Cluster: !ImportValue ECSCluster
       DesiredCount: 2
       LaunchType: FARGATE
-      Role:
       LoadBalancers: 
-        ContainerName:  GETATT CONTAINER NAME
-        ContainerPort: !Ref AppContainerPort
-        TargetGroupArn: !GetAtt ALBTargetGroup.Arn
-      ServiceName: !Sub ${Stack-Name}-ECSService
+        - ContainerName: !Sub ${AWS::StackName}-DemoContainer
+          ContainerPort: !Ref AppContainerPort
+          TargetGroupArn: !Ref ALBTargetGroup
+      ServiceName: !Sub ${AWS::StackName}-ECSService
       TaskDefinition: !Ref DemoECSTaskDefinition
       DeploymentConfiguration:
         MaximumPercent: 200
         MinimumPercent: 70
       NetworkConfiguration:
         AwsvpcConfiguration:
-          AssignPublicIp:  ENABLED
+          AssignPublicIp:  DISABLED
           Subnets:
             - !ImportValue FargateSubnet1
             - !ImportValue FargateSubnet2
           SecurityGroups:
-            - !Ref FargateTaskSG
+            - !ImportValue FargateTaskSG
       Tags: 
         - Key: Name
           Value: !Sub ${AWS::StackName}-DemoECSService
@@ -100,6 +97,18 @@ Resources:
       Actions:
         - TargetGroupArn: !Ref ALBTargetGroup
           Type: forward 
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet Group For MySQL RDS Instance
+      DBSubnetGroupName: !Sub ${AWS::StackName}-demodbsubnetgroup
+      SubnetIds:
+        - !ImportValue RDSSubnet1
+        - !ImportValue RDSSubnet2
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-RDSSubnetGroup
 
 Outputs:
   APIEndpoint: 
