@@ -1,0 +1,208 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: AWS CloudFormation template to deploy a Docker container on Amazon ECS using Fargate.
+
+Parameters:
+  VPCCIDR:
+    Type: String
+  SubnetCount:
+    Type: Number
+  SubnetBits:
+    Type: Number
+
+Resources:
+  DemoVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPCCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPC
+
+  ALBSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DemoVPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Select [ 0, !Cidr [ !GetAtt DemoVPC.CidrBlock, !Ref SubnetCount, !Ref SubnetBits ] ]
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-ALBSubnet1
+   
+  ALBSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DemoVPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Select [ 1, !Cidr [ !GetAtt DemoVPC.CidrBlock, !Ref SubnetCount, !Ref SubnetBits ] ]
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-ALBSubnet2 
+
+  FargateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      VpcId: !Ref DemoVPC
+      AvailabilityZone : !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Select [ 2, !Cidr [ !GetAtt DemoVPC.CidrBlock, !Ref SubnetCount, !Ref SubnetBits ] ]
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-FargateSubnet1
+
+  FargateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DemoVPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Select [ 3, !Cidr [ !GetAtt DemoVPC.CidrBlock, !Ref SubnetCount, !Ref SubnetBits ] ]
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-FargateSubnet2
+
+  RDSSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DemoVPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Select [ 4, !Cidr [ !GetAtt DemoVPC.CidrBlock, !Ref SubnetCount, !Ref SubnetBits ] ]
+      Tags: 
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-RDSSubnet1
+
+  RDSSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DemoVPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Select [ 5, !Cidr [ !GetAtt DemoVPC.CidrBlock, !Ref SubnetCount, !Ref SubnetBits ] ]
+      Tags: 
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-RDSSubnet2
+
+  DemoIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-IGW
+
+  DemoIGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref DemoIGW
+      VpcId: !Ref DemoVPC
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref DemoVPC
+      Tags:
+        - Key: Name 
+          Value: !Sub ${AWS::StackName}-RouteTable
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: DemoIGWAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      GatewayId: !Ref DemoIGW
+      DestinationCidrBlock: 0.0.0.0/0
+
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref DemoVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateRouteTable1
+  
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref DemoVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateRouteTable2
+
+  ALBSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      SubnetId: !Ref ALBSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  ALBSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      SubnetId: !Ref ALBSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  FargateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      SubnetId: !Ref FargateSubnet1
+      RouteTableId: !Ref PrivateRouteTable1 
+
+
+  FargateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      SubnetId: !Ref FargateSubnet2
+      RouteTableId: !Ref PrivateRouteTable2
+
+
+  RDSSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      SubnetId: !Ref RDSSubnet1
+      RouteTableId: !Ref PrivateRouteTable1
+
+
+  RDSSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      SubnetId: !Ref RDSSubnet2
+      RouteTableId: !Ref PrivateRouteTable2
+  
+Output:
+  VPC:
+    Description: VPC
+    Value: !Ref DemoVPC
+    Export:
+      Name: VPC
+
+  PublicSubnet1:
+    Description: Public Subnet 1
+    Value: !Ref ALBSubnet1
+    Export:
+      Name: PublicSubnet1
+
+  PublicSubnet2:
+    Description: Public Subnet 2
+    Value: !Ref ALBSubnet2
+    Export:
+      Name: PublicSubnet2
+
+  PrivateSubnet1:
+    Description: Private Subnet 1
+    Value: !Ref FargateSubnet1
+    Export:
+      Name: PrivateSubnet1
+
+  PrivateSubnet2:
+    Description: Private Subnet 2
+    Value: !Ref FargateSubnet2
+    Export:
+      Name: PrivateSubnet2
+
+  PrivateSubnet3:
+    Description: Private Subnet 3
+    Value: !Ref RDSSubnet1
+    Export:
+      Name: PrivateSubnet3
+
+  PrivateSubnet4:
+    Description: Private Subnet 4
+    Value: !Ref RDSSubnet2
+    Export:
+      Name: PrivateSubnet4
