@@ -2,16 +2,6 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: AWS CloudFormation template to deploy a Docker container on Amazon ECS using Fargate.
 
 Parameters:
-  VPCCIDR:
-    Type: String
-  SubnetCount:
-    Type: Number
-  SubnetBits:
-    Type: Number
-  ECSCluster1:
-    Type: String
-  ECRregistry:
-    Type: String
   ALBInboundPort:
     Type: Number
   AppContainerPort:
@@ -20,162 +10,44 @@ Parameters:
     Type: Number
 
 Resources:
-  DemoVPC:
-    Type: AWS::EC2::VPC
-    Properties:
-      CidrBlock: !Ref VPCCIDR
-      EnableDnsSupport: true
-      EnableDnsHostnames: true
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-VPC
-
-  DemoIGW:
-    Type: AWS::EC2::InternetGateway
-    Properties:
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-IGW
-
-  DemoIGWAttachment:
-    Type: AWS::EC2::VPCGatewayAttachment
-    Properties:
-      InternetGatewayId: !Ref DemoIGW
-      VpcId: !Ref DemoVPC
-
-  PublicRouteTable:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref DemoVPC
-      Tags:
-        - Key: Name 
-          Value: !Sub ${AWS::StackName}-RouteTable
-
-  PublicRoute:
-    Type: AWS::EC2::Route
-    DependsOn: DemoIGWAttachment
-    Properties:
-      RouteTableId: !Ref PublicRouteTable
-      GatewayId: !Ref DemoIGW
-      DestinationCidrBlock: 0.0.0.0/0
-
-  PrivateRouteTable1:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref DemoVPC
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-PrivateRouteTable1
-  
-  PrivateRouteTable2:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref DemoVPC
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-PrivateRouteTable2
-
-  ALBSubnet1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref DemoVPC
-      AvailabilityZone: !Select [ 0, !GetAZs '' ]
-      CidrBlock: !Select [ 0, !Cidr [ !GetAtt DemoVPC.CidrBlock, !Ref SubnetCount, !Ref SubnetBits ] ]
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-ALBSubnet1
-
-  ALBSubnet1RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
+  DemoECSCluster:
+    Type: AWS::ECS::Cluster
     Properties: 
-      SubnetId: !Ref ALBSubnet1
-      RouteTableId: !Ref PublicRouteTable
-   
-  ALBSubnet2:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref DemoVPC
-      AvailabilityZone: !Select [ 1, !GetAZs '' ]
-      CidrBlock: !Select [ 1, !Cidr [ !GetAtt DemoVPC.CidrBlock, !Ref SubnetCount, !Ref SubnetBits ] ]
+      ClusterName: !Sub ${AWS::StackName}-FargateCluster
       Tags:
         - Key: Name
-          Value: !Sub ${AWS::StackName}-ALBSubnet2
+          Value: !Sub ${AWS::StackName}-ECSCluster
 
-  ALBSubnet2RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties: 
-      SubnetId: !Ref ALBSubnet2
-      RouteTableId: !Ref PublicRouteTable 
-
-  FargateSubnet1:
-    Type: AWS::EC2::Subnet
-    Properties: 
-      VpcId: !Ref DemoVPC
-      AvailabilityZone : !Select [ 0, !GetAZs '' ]
-      CidrBlock: !Select [ 2, !Cidr [ !GetAtt DemoVPC.CidrBlock, !Ref SubnetCount, !Ref SubnetBits ] ]
+  DemoALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${AWS::StackName}-ALB
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref ALBSG
+      Subnets:
+        - !ImportValue ALBSubnet1
+        - !ImportValue ALBSubnet2
+      Type: application
       Tags:
         - Key: Name
-          Value: !Sub ${AWS::StackName}-FargateSubnet1
+          Value: !Sub ${AWS::StackName}-LB
 
-  FargateSubnet1RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties: 
-      SubnetId: !Ref FargateSubnet1
-      RouteTableId: !Ref PrivateRouteTable1 
-
-  FargateSubnet2:
-    Type: AWS::EC2::Subnet
+  HTTPListeronALB:
+    Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
-      VpcId: !Ref DemoVPC
-      AvailabilityZone: !Select [ 1, !GetAZs '' ]
-      CidrBlock: !Select [ 3, !Cidr [ !GetAtt DemoVPC.CidrBlock, !Ref SubnetCount, !Ref SubnetBits ] ]
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-FargateSubnet2
-
-  FargateSubnet2RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties: 
-      SubnetId: !Ref FargateSubnet2
-      RouteTableId: !Ref PrivateRouteTable2
-
-  RDSSubnet1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref DemoVPC
-      AvailabilityZone: !Select [ 0, !GetAZs '' ]
-      CidrBlock: !Select [ 4, !Cidr [ !GetAtt DemoVPC.CidrBlock, !Ref SubnetCount, !Ref SubnetBits ] ]
-      Tags: 
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-RDSSubnet1
-
-  RDSSubnet1RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties: 
-      SubnetId: !Ref RDSSubnet1
-      RouteTableId: !Ref PrivateRouteTable1
-
-  RDSSubnet2:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref DemoVPC
-      AvailabilityZone: !Select [ 1, !GetAZs '' ]
-      CidrBlock: !Select [ 5, !Cidr [ !GetAtt DemoVPC.CidrBlock, !Ref SubnetCount, !Ref SubnetBits ] ]
-      Tags: 
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-RDSSubnet2
-
-  RDSSubnet2RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties: 
-      SubnetId: !Ref RDSSubnet2
-      RouteTableId: !Ref PrivateRouteTable2
+      LoadBalancerArn: !Ref DemoALB
+      Protocol: HTTP
+      Port: !Ref ALBInboundPort
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref DefaultTargetGroup
 
   ALBSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Security group for the ALB.
-      VpcId: !Ref DemoVPC
+      VpcId: !ImportValue VPC
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-ALBSG
@@ -199,12 +71,134 @@ Resources:
       FromPort: !Ref AppContainerPort
       ToPort: !Ref AppContainerPort
       DestinationSecurityGroupId: !Ref FargateTaskSG
-  
+ 
+    DefaultTargetGroup:
+      Type: AWS::ElasticLoadBalancingV2::TargetGroup
+      Properties:
+        Name: !Sub ${AWS::StackName}-DefaultTargetGroup
+        Port: !Ref AppContainerPort
+        Protocol: HTTP
+        VpcId: !ImportValue VPC
+        Tags:
+          - Key: Name
+            Value: !Sub ${AWS::StackName}-defaultTargetGroup
+
+  VPCInterfaceEndpointsSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ECR VPC Endpoints.
+      VpcId: !ImportValue VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPCEndpointsSG 
+
+  VPCInterfaceEndpointsSGIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Inbound rule on the VPCInterfaceEndpointsSG to allow inbound traffic on port 443 from ECS Fargate security group.
+      GroupId: !Ref VPCInterfaceEndpointsSG
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      SourceSecurityGroupId: !Ref FargateTaskSG
+
+  RDSSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for RDS MySQL.
+      VpcId: !ImportValue VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-RDSSG
+
+  RDSSGIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Inbound rule for the RDSSG to allow traffic from the Fargate task security group on port 3306.
+      GroupId: !Ref RDSSG
+      IpProtocol: tcp
+      FromPort: !Ref DBPort
+      ToPort: !Ref DBPort
+      SourceSecurityGroupId: !Ref FargateTaskSG
+
+  VPCInterfaceEndpointECRDKR:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ecr.dkr
+      PrivateDnsEnabled: true
+      VpcId: !ImportValue VPC
+      SubnetIds:
+        - !ImportValue FargateSubnet1
+        - !ImportValue FargateSubnet2
+      SecurityGroupIds: 
+        - !Ref VPCInterfaceEndpointsSG
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPCInterfaceEndpointDKR
+
+  VPCInterfaceEndpointECRAPI:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ecr.api
+      PrivateDnsEnabled: true
+      VpcId: !ImportValue VPC
+      SubnetIds:
+        - !ImportValue FargateSubnet1
+        - !ImportValue FargateSubnet2
+      SecurityGroupIds:
+        - !Ref VPCInterfaceEndpointsSG
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPCInterfaceEndpointAPI
+
+  VPCInterfaceEndpointCWLogs:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.logs
+      PrivateDnsEnabled: 'true'
+      VpcId: !ImportValue VPC
+      SubnetIds: 
+        - !ImportValue FargateSubnet1
+        - !ImportValue FargateSubnet2
+      SecurityGroupIds:
+        - !Ref VPCInterfaceEndpointsSG
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPCInterfaceEndpointCWLogs 
+
+  DemoECR:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub ${AWS::StackName}-ECRRepo
+      EmptyOnDelete: 'true'
+      RepositoryPolicyText:
+        Version: 2012-10-17
+        Statement: 
+          - 
+            Sid: AllowPullandPushImagesonECR
+            Effect: Allow
+            Principal: 
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action:
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchGetImage
+              - ecr:BatchCheckLayerAvailability
+              - ecr:PutImage
+              - ecr:CompleteLayerUpload
+              - ecr:UploadLayerPart
+              - ecr:InitiateLayerUpload
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-ECR
+
   FargateTaskSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Security group for ECS Fargate tasks.
-      VpcId: !Ref DemoVPC
+      VpcId: !ImportValue VPC
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-FargateTaskSG
@@ -247,152 +241,41 @@ Resources:
       IpProtocol: tcp
       FromPort: 443
       ToPort: 443 
-      DestinationPrefixListId: !GetAtt VPCS3GWEndpoint.PrefixListId
+      DestinationPrefixListId: !ImportValue PrefixListId
 
-  VPCInterfaceEndpointsSG:
-    Type: AWS::EC2::SecurityGroup
+  CWLogsGroup:
+    Type: AWS::Logs::LogGroup
     Properties:
-      GroupDescription: Security group for ECR VPC Endpoints.
-      VpcId: !Ref DemoVPC
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-VPCEndpointsSG 
+      LogGroupName: !Sub ${AWS::StackName}-LogGroup
+      RetentionInDays: 1
 
-  VPCInterfaceEndpointsSGIngress:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      Description: Inbound rule on the VPCInterfaceEndpointsSG to allow inbound traffic on port 443 from ECS Fargate security group.
-      GroupId: !Ref VPCInterfaceEndpointsSG
-      IpProtocol: tcp
-      FromPort: 443
-      ToPort: 443
-      SourceSecurityGroupId: !Ref FargateTaskSG
+Outputs:
+  Cluster:
+    Description: ECS Cluster
+    Value: !Ref DemoECSCluster
+    Export:
+      Name: ECSCluster
 
-  RDSSG:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Security group for RDS MySQL.
-      VpcId: !Ref DemoVPC
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-RDSSG
+  Listener:
+    Description: Listener on port 80
+    Value: !Ref HTTPListeronALB
+    Export:
+      Name: Listener
 
-  RDSSGIngress:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      Description: Inbound rule for the RDSSG to allow traffic from the Fargate task security group on port 3306.
-      GroupId: !Ref RDSSG
-      IpProtocol: tcp
-      FromPort: !Ref DBPort
-      ToPort: !Ref DBPort
-      SourceSecurityGroupId: !Ref FargateTaskSG
+  FargateSecurityGroup:
+    Description: Fargate Security Group
+    Value: !Ref FargateTaskSG
+    Export:
+      Name: FargateTaskSG
 
-  VPCInterfaceEndpointECRDKR:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcEndpointType: Interface
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.ecr.dkr
-      PrivateDnsEnabled: true
-      VpcId: !Ref DemoVPC
-      SubnetIds:
-        - !Ref FargateSubnet1
-        - !Ref FargateSubnet2
-      SecurityGroupIds: 
-        - !Ref VPCInterfaceEndpointsSG
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-VPCInterfaceEndpointDKR
+  LoadBalancerDNS:
+    Description: LoadBalancerDNSName
+    Value: !GetAtt DemoALB.DNSName
+    Export:
+      Name: DomainName
 
-  VPCInterfaceEndpointECRAPI:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcEndpointType: Interface
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.ecr.api
-      PrivateDnsEnabled: true
-      VpcId: !Ref DemoVPC
-      SubnetIds:
-        - !Ref FargateSubnet1
-        - !Ref FargateSubnet2
-      SecurityGroupIds:
-        - !Ref VPCInterfaceEndpointsSG
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-VPCInterfaceEndpointAPI
-
-  VPCInterfaceEndpointCWLogs:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcEndpointType: Interface
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.logs
-      PrivateDnsEnabled: true
-      VpcId: !Ref DemoVPC
-      SubnetIds: 
-        - !Ref FargateSubnet1
-        - !Ref FargateSubnet2
-      SecurityGroupIds:
-        - !Ref VPCInterfaceEndpointsSG
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-VPCInterfaceEndpointCWLogs 
-
-  VPCS3GWEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcEndpointType: Gateway
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
-      VpcId: !Ref DemoVPC
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal: '*'
-            Action:
-              - s3.GetObject
-            Resource:
-              - !Sub arn:aws:s3:::prod-${AWS::Region}-starport-layer-bucket/*
-      RouteTableIds:
-        - !Ref PrivateRouteTable1
-        - !Ref PrivateRouteTable2
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-VPCS3GatewayEndpoint
-
-  DemoALB:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Properties:
-      Name: !Sub ${AWS::StackName}-ALB
-      Scheme: internet-facing
-      SecurityGroups:
-        - !Ref ALBSG
-      Subnets:
-        - !Ref ALBSubnet1
-        - !Ref ALBSubnet2
-      Type: application
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-LB
-
-  HTTPListeronALB:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      LoadBalancerArn: !Ref DemoALB
-      Protocol: HTTP
-      Port: !Ref ALBInboundPort
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref ALBTargetGroup
-  
-  ALBTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Name: !Sub ${AWS::StackName}-TargetGroup
-      Port: !Ref AppContainerPort
-      Protocol: HTTP
-      VpcId: !Ref DemoVPC
-      TargetType: ip
-      TargetGroupAttributes:
-        - Key: deregistration_delay.timeout_seconds
-          Value: 60
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-ALBTargetGroup
+  CloudWatchLogGroup:
+      Description: CloudWatch Log Group
+      Value: !Ref CWLogsGroup
+      Export:
+        Name: CloudWatchLogGroup
