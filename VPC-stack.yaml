@@ -164,7 +164,7 @@ Resources:
       SubnetId: !Ref RDSSubnet2
       RouteTableId: !Ref PrivateRouteTable2
   
-Output:
+Outputs:
   VPC:
     Description: VPC
     Value: !Ref DemoVPC
