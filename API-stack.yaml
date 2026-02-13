@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: AWS CloudFormation template to deploy app from ECR to Fargate.
+
+Parameters:
+  ALBInboundPort:
+    Type: Number
+  AppContainerPort:
+    Type: Number
+  DBPort:
+    Type: Number
+
+Resources:
+  DemoECSTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions:
+        Name: !Sub ${AWS::StackName}-DemoContainer
+        Image: IMAGEGOESHERE
+        PortMappings:
+          - ContainerPort: !Ref AppContainerPort
+            Protocol: tcp
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group: !ImportValue CloudWatchLogGroup
+            awslogs-region: !Ref ${AWS::Region}
+            awslogs-stream-prefix: demo-api
+      Family: !Sub ${AWS::StackName}-DemoContainer
+      Cpu: 256
+      Memory: 512
+      NetworkMode: awsvpc
+      RequiresCapabilities:
+        - FARGATE
+      ExecutionRoleArn: !ImportValue ECSTaskExecutionRole
+      TaskRoleArn: ..
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-TaskDefinition
+
+  DemoTaskService:
+    Type: AWS::ECS::Service
+    DependsOn: ALBListenerRule
+    Properties:
+      Cluster: !Ref DemoECSCluster
+      DesiredCount: 2
+      LaunchType: FARGATE
+      Role:
+      LoadBalancers: 
+        ContainerName:  GETATT CONTAINER NAME
+        ContainerPort: !Ref AppContainerPort
+        TargetGroupArn: !GetAtt ALBTargetGroup.Arn
+      ServiceName: !Sub ${Stack-Name}-ECSService
+      TaskDefinition: !Ref DemoECSTaskDefinition
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumPercent: 70
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp:  ENABLED
+          Subnets:
+            - !ImportValue FargateSubnet1
+            - !ImportValue FargateSubnet2
+          SecurityGroups:
+            - !Ref FargateTaskSG
+      Tags: 
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-DemoECSService
+
+  ALBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${AWS::StackName}-ALBTargetGroup
+      Port: !Ref AppContainerPort
+      HealthCheckPath: /health
+      Matcher:
+        HttpCode: 200-299
+      HealthCheckIntervalSeconds: 10
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 5
+      Protocol: HTTP
+      VpcId: !ImportValue VPC
+      TargetType: ip
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '60'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-ALBTargetGroup
+
+  ALBListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref HTTPListeneronALB
+      Priority: 1
+      Conditions: 
+        - Field: path-pattern
+          Values:
+            - /api/users*
+      Actions:
+        - TargetGroupArn: !Ref ALBTargetGroup
+          Type: forward 
+
