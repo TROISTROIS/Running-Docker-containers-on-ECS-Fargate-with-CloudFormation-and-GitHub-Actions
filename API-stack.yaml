@@ -98,6 +98,42 @@ Resources:
         - TargetGroupArn: !Ref ALBTargetGroup
           Type: forward 
 
+  DBNameParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: dbName
+      Type: String
+      Value: users
+      Description: SSM Parameter for database name.
+      AllowedPattern: "^[a-zA-Z]{1,10}$"
+      Tags:
+        - Key: Name
+          Value: dbName
+
+  DBUserParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: dbUserName
+      Type: String
+      Value: adminuser
+      Description: SSM Parameter for database user.
+      AllowedPattern: "^[a-zA-Z]{1,10}$"
+      Tags:
+        - Key: Name
+          Value: dbUser
+
+  DBPasswordParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: dbUserPassword
+      Type: String
+      Value: "Monday2026"
+      Description: SSM Parameter for database password.
+      AllowedPattern: "^[a-zA-Z]{1,15}$"
+      Tags:
+        - Key: Name
+          Value: dbPassword
+
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
@@ -129,6 +165,65 @@ Resources:
         - Key: Name
           Value: !Sub ${AWS::StackName}-dBInstance
 
+  RDSLambda:
+    Type: AWS::Lambda::Function 
+    Properties: 
+      Description: Lambda function to create a database in rds and a table 
+      FunctionName: LambdaforRDS
+      Role: !ImportValue LambdaExecutionRole
+      Runtime: python3.11
+      Handler: index.handler
+      Timeout: 15
+      Layers: !Sub arn:aws:lambda:${AWS::Region}:336392948345:layer:AWSSDKPandas-Python312:14
+      VpcConfig:
+        SecurityGroupIds:
+          - !ImportValue FargateTaskSG
+        SubnetIds:
+          - !ImportValue FargateSubnet1
+          - !ImportValue FargateSubnet2
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-LambdaforRDS
+      Environment:
+        Variables:
+          DB_HOST: !GetAtt RDS.Endpoint.Address
+      Code:
+        ZipFile: |
+          import pymysql
+          import boto3
+          import os
+
+          def handler(event, context):
+              ssm = boto3.client('ssm')
+              try:
+                  db_host = os.environ['DB_HOST']
+                  user = ssm.get_parameter(Name='dbUserName')['Parameter']['Value']
+                  pwd = ssm.get_parameter(Name='dbUserPassword')['Parameter']['Value']
+                  db_name = ssm.get_parameter(Name='dbName')['Parameter']['Value']
+
+                  print(f"Connecting to {db_host}...")
+                  conn = pymysql.connect(
+                      host=db_host,
+                      user=user,
+                      password=pwd,
+                      database=db_name,
+                      connect_timeout=10
+                  )
+                  
+                  with conn.cursor() as cur:
+                      cur.execute("CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255), email VARCHAR(20), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+                      conn.commit()
+                  
+                  print("Table created successfully!")
+                  return {"status": "success"}
+
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  raise e
+
+              finally:
+                  if 'conn' in locals():
+                      conn.close()      
 
 Outputs:
   APIEndpoint: 
