@@ -13,10 +13,21 @@ Resources:
     Properties:
       ContainerDefinitions:
         - Name: !Sub ${AWS::StackName}-DemoContainer
-          Image: ..
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-ECRRepo:latest
           PortMappings:
             - ContainerPort: !Ref AppContainerPort
               Protocol: tcp
+          Environment:
+            - Name: DB_HOST
+              Value: !GetAtt RDS.Endpoint.Address
+            - Name: DB_USER
+              Value: '{{resolve:ssm:dbUserName:1}}'
+            - Name: DB_PASSWORD
+              Value: '{{resolve:ssm:dbUserPassword:1}}'
+            - Name: DB_NAME
+              Value: '{{resolve:ssm:dbName:1}}'
+            - Name: DB_PORT
+              Value: !Ref DBPort
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -30,7 +41,7 @@ Resources:
       RequiresCompatibilities:
         - FARGATE
       ExecutionRoleArn: !ImportValue ECSTaskExecutionRole
-      TaskRoleArn: ..
+      # TaskRoleArn: .. # Not required for basic database connection via env vars
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-TaskDefinition
