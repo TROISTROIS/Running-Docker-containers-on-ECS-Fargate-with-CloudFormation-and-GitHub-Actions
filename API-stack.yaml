@@ -184,11 +184,11 @@ Resources:
       Description: Lambda function to create a database in rds and a table 
       FunctionName: LambdaforRDS
       Role: !ImportValue LambdaExecutionRole
-      Runtime: python3.12
+      Runtime: python3.11
       Handler: index.handler
       Timeout: 15
       Layers: 
-        - !Sub arn:aws:lambda:${AWS::Region}:336392948345:layer:AWSSDKPandas-Python312:14
+        - !Sub arn:aws:lambda:${AWS::Region}:336392948345:layer:AWSSDKPandas-Python311:22
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue FargateTaskSG
