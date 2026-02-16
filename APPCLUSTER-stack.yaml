@@ -259,10 +259,16 @@ Resources:
       ToPort: 443 
       DestinationPrefixListId: !ImportValue PrefixListId
 
-  CWLogsGroup:
+  ECSTaskLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub ${AWS::StackName}-LogGroup
+      LogGroupName: !Sub ${AWS::StackName}-ECSTaskLogGroup
+      RetentionInDays: 1
+
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-LambdaLogGroup
       RetentionInDays: 1
 
 Outputs:
@@ -296,11 +302,17 @@ Outputs:
     Export:
       Name: DomainName
 
-  CloudWatchLogGroup:
-    Description: CloudWatch Log Group
-    Value: !GetAtt CWLogsGroup.Arn
+  ECSLogGroup:
+    Description: CloudWatch Log Group for ECS Task
+    Value: !GetAtt ECSTaskLogGroup.Arn
     Export:
-      Name: CloudWatchLogGroupArn
+      Name: ECSTaskLogGroup
+
+  LambdaLogGroup:
+    Description: CloudWatch Log Group for Lambda
+    Value: !GetAtt LambdaLogGroup.Arn
+    Export:
+      Name: LambdaLogGroup
 
   DKRVPCEndpoint:
     Description: VPC Endpoint for Docker
