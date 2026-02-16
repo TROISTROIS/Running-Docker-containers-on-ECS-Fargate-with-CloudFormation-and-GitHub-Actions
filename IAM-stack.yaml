@@ -59,6 +59,15 @@ Resources:
                   StringEquals:
                     aws:sourceVpc: !ImportValue VPC
 
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*'
+                Condition:
+                  StringEquals:
+                    aws:SourceVpce: !ImportValue VPCInterfaceEndpointSSM
+
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -100,6 +109,6 @@ Outputs:
 
   LamdaExecutionRole: 
     Description: Lambda Execution Role
-    Value: !GetAtt LambdaExecution.Arn
+    Value: !GetAtt LambdaExecutionRole.Arn
     Export:
       Name: LambdaExecutionRole
