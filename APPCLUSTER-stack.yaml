@@ -338,10 +338,16 @@ Outputs:
     Export:
       Name: VPCInterfaceEndpointSSM
 
-  ECR:
+  ECRURI:
     Description: ECR Repo
     Value: !GetAtt DemoECR.RepositoryUri
     Export:
       Name: ECRURI
+
+  ECRArn:
+    Description: ECR Repo
+    Value: !GetAtt DemoECR.Arn
+    Export:
+      Name: ECRArn
 
   
