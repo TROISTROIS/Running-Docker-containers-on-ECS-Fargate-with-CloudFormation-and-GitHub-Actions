@@ -13,7 +13,7 @@ Resources:
     Properties:
       ContainerDefinitions:
         - Name: !Sub ${AWS::StackName}-DemoContainer
-          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-ECRRepo:latest
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-ecrrepo:latest
           PortMappings:
             - ContainerPort: !Ref AppContainerPort
               Protocol: tcp
@@ -21,11 +21,11 @@ Resources:
             - Name: DB_HOST
               Value: !GetAtt RDS.Endpoint.Address
             - Name: DB_USER
-              Value: '{{resolve:ssm:dbUserName:1}}'
+              Value: !Ref DBUserParam
             - Name: DB_PASSWORD
-              Value: '{{resolve:ssm:dbUserPassword:1}}'
+              Value: !Ref DBPasswordParam
             - Name: DB_NAME
-              Value: '{{resolve:ssm:dbName:1}}'
+              Value: !Ref DBNameParam
             - Name: DB_PORT
               Value: !Ref DBPort
           LogConfiguration:
@@ -41,7 +41,6 @@ Resources:
       RequiresCompatibilities:
         - FARGATE
       ExecutionRoleArn: !ImportValue ECSTaskExecutionRole
-      # TaskRoleArn: .. # Not required for basic database connection via env vars
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-TaskDefinition
@@ -165,14 +164,14 @@ Resources:
       AllocatedStorage: '20'
       BackupRetentionPeriod: 0
       DBInstanceClass: db.t2.micro
-      DBInstanceIdentifier: !Sub ${AWS::StackName}-RDS
-      DBName: '{{resolve:ssm:dbName:1}}'
+      DBInstanceIdentifier: !Sub ${AWS::StackName}-rds
+      DBName: !Ref DBNameParam
       VPCSecurityGroups: 
         - !ImportValue RDSSG
       DBSubnetGroupName: !Ref DBSubnetGroup
       Engine: mysql 
-      MasterUsername: '{{resolve:ssm:dbUserName:1}}'
-      MasterUserPassword: '{{resolve:ssm:dbUserPassword:1}}'
+      MasterUsername: !Ref DBUserParam
+      MasterUserPassword: !Ref DBPasswordParam
       MultiAZ: true
       Tags:
         - Key: Name
@@ -188,7 +187,7 @@ Resources:
       Handler: index.handler
       Timeout: 15
       Layers: 
-        - !Sub arn:aws:lambda:${AWS::Region}:336392948345:layer:AWSSDKPandas-Python311:22
+        - !Sub arn:aws:lambda:${AWS::Region}:336392948345:layer:AWSSDKPandas-Python311:10
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue FargateTaskSG
