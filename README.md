@@ -113,7 +113,26 @@ aws cloudformation deploy \
   --parameter-overrides ALBInboundPort=80 AppContainerPort=3000 DBPort=3306
 ```
 
-#### 3. Identity and Access Management (IAM-stack)
+#### 3. Push Docker Image to ECR
+Before deploying the application stack, you must build and push your Docker image to the ECR repository created in the previous step.
+
+1.  **Authenticate Docker to ECR:**
+    ```bash
+    aws ecr get-login-password --region <your-region> | docker login --username AWS --password-stdin <aws_account_id>.dkr.ecr.<your-region>.amazonaws.com
+    ```
+
+2.  **Build and Tag the image:**
+    ```bash
+    docker build -t ecs-demo-app .
+    docker tag ecs-demo-app:latest <aws_account_id>.dkr.ecr.<your-region>.amazonaws.com/demo-cluster-ECRRepo:latest
+    ```
+
+3.  **Push to ECR:**
+    ```bash
+    docker push <aws_account_id>.dkr.ecr.<your-region>.amazonaws.com/demo-cluster-ECRRepo:latest
+    ```
+
+#### 4. Identity and Access Management (IAM-stack)
 Defines the IAM roles required for ECS tasks and Lambda functions.
 ```bash
 aws cloudformation deploy \
@@ -122,7 +141,7 @@ aws cloudformation deploy \
   --capabilities CAPABILITY_NAMED_IAM
 ```
 
-#### 4. API & Database Stack (API-stack)
+#### 5. API & Database Stack (API-stack)
 Deploys the RDS instance, Lambda initializer, and the ECS Fargate Service.
 ```bash
 aws cloudformation deploy \
