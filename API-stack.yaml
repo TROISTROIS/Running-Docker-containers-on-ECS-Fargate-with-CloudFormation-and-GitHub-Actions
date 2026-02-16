@@ -20,12 +20,12 @@ Resources:
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: !ImportValue CloudWatchLogGroup
+              awslogs-group: !ImportValue ECSTaskLogGroup
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: demo-api
       Family: !Sub ${AWS::StackName}-DemoContainer
-      Cpu: 256
-      Memory: 512
+      Cpu: '256'
+      Memory: '512'
       NetworkMode: awsvpc
       RequiresCompatibilities:
         - FARGATE
@@ -37,7 +37,9 @@ Resources:
 
   DemoTaskService:
     Type: AWS::ECS::Service
-    DependsOn: ALBListenerRule
+    DependsOn: 
+      - ALBListenerRule
+      - RunDBScripts
     Properties:
       Cluster: !ImportValue ECSCluster
       DesiredCount: 2
@@ -171,10 +173,11 @@ Resources:
       Description: Lambda function to create a database in rds and a table 
       FunctionName: LambdaforRDS
       Role: !ImportValue LambdaExecutionRole
-      Runtime: python3.11
+      Runtime: python3.12
       Handler: index.handler
       Timeout: 15
-      Layers: !Sub arn:aws:lambda:${AWS::Region}:336392948345:layer:AWSSDKPandas-Python312:14
+      Layers: 
+        - !Sub arn:aws:lambda:${AWS::Region}:336392948345:layer:AWSSDKPandas-Python312:14
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue FargateTaskSG
@@ -192,16 +195,27 @@ Resources:
           import pymysql
           import boto3
           import os
+          import cfnresponse  # Mandatory for Custom Resources
 
           def handler(event, context):
+              # 1. Handle CloudFormation Delete events
+              # If the stack is being deleted, we just signal success and exit.
+              if event['RequestType'] == 'Delete':
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                  return
+
               ssm = boto3.client('ssm')
+              conn = None
+              
               try:
+                  # 2. Fetch Parameters from SSM
                   db_host = os.environ['DB_HOST']
                   user = ssm.get_parameter(Name='dbUserName')['Parameter']['Value']
                   pwd = ssm.get_parameter(Name='dbUserPassword')['Parameter']['Value']
                   db_name = ssm.get_parameter(Name='dbName')['Parameter']['Value']
 
                   print(f"Connecting to {db_host}...")
+                  
                   conn = pymysql.connect(
                       host=db_host,
                       user=user,
@@ -209,21 +223,39 @@ Resources:
                       database=db_name,
                       connect_timeout=10
                   )
-                  
+
                   with conn.cursor() as cur:
-                      cur.execute("CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255), email VARCHAR(20), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+                      cur.execute("""
+                          CREATE TABLE IF NOT EXISTS users (
+                              id INT AUTO_INCREMENT PRIMARY KEY, 
+                              name VARCHAR(255), 
+                              email VARCHAR(100), 
+                              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                          )
+                      """)
                       conn.commit()
                   
                   print("Table created successfully!")
-                  return {"status": "success"}
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {"Message": "Tables Created"})
 
               except Exception as e:
                   print(f"Error: {str(e)}")
-                  raise e
+                  # 6. Signal FAILURE to CloudFormation
+                  # This stops the deployment and rolls back, preventing a broken app launch
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {"Message": str(e)})
 
               finally:
-                  if 'conn' in locals():
-                      conn.close()      
+                  if conn:
+                      conn.close()  
+
+  RunDBScripts:
+    Type: Custom::DBInitializer
+    DependsOn: 
+      - RDS
+      - RDSLambda
+    Properties:
+      ServiceToken: !GetAtt RDSLambda.Arn
+      DBName: !Ref DBNameParam
 
 Outputs:
   APIEndpoint: 
