@@ -188,7 +188,7 @@ Resources:
   DemoECR:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub ${AWS::StackName}-ECRRepo
+      RepositoryName: !Sub ${AWS::StackName}-ecrrepo
       EmptyOnDelete: 'true'
       RepositoryPolicyText:
         Version: 2012-10-17
@@ -340,8 +340,8 @@ Outputs:
 
   ECR:
     Description: ECR Repo
-    Value: !GetAtt DemoECR.Arn
+    Value: !GetAtt DemoECR.RepositoryUri
     Export:
-      Name: ECRArn
+      Name: ECRURI
 
   
