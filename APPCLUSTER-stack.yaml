@@ -169,6 +169,22 @@ Resources:
         - Key: Name
           Value: !Sub ${AWS::StackName}-VPCInterfaceEndpointCWLogs 
 
+  SSMInterfaceEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: 'true'
+      VpcId: !ImportValue VPC
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssm
+      SubnetIds:
+        - !ImportValue FargateSubnet1
+        - !ImportValue FargateSubnet2
+      SecurityGroupIds:
+        - !Ref VPCInterfaceEndpointsSG
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPCInterfaceEndpointSSM 
+
   DemoECR:
     Type: AWS::ECR::Repository
     Properties:
