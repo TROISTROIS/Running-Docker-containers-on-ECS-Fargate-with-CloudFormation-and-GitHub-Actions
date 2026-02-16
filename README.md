@@ -77,5 +77,70 @@ To run this application using the pre-built image from Docker Hub:
         docker compose up -d
         ```
 
-3.  **Access the application:**
+### Access the application:
     Open your browser and navigate to [http://localhost:3000](http://localhost:3000).
+
+## AWS Deployment
+
+This project includes AWS CloudFormation templates to deploy the application on Amazon ECS using AWS Fargate.
+
+### Prerequisites
+
+- An active [AWS Account](https://aws.amazon.com/).
+- [AWS CLI](https://aws.amazon.com/cli/) installed and configured with appropriate permissions.
+- Docker installed (if you plan to push a new image to ECR).
+
+### Deployment Steps
+
+The infrastructure is broken down into four stacks that must be deployed in the following order:
+
+#### 1. Network Infrastructure (VPC-stack)
+Sets up the VPC, subnets, and routing.
+```bash
+aws cloudformation deploy \
+  --template-file VPC-stack.yaml \
+  --stack-name demo-vpc \
+  --parameter-overrides VPCCIDR=10.0.0.0/16 SubnetCount=6 SubnetBits=8
+```
+
+#### 2. App Cluster Infrastructure (APPCLUSTER-stack)
+Sets up the ECS Cluster, ALB, Security Groups, ECR Repository, and VPC Endpoints.
+```bash
+aws cloudformation deploy \
+  --template-file APPCLUSTER-stack.yaml \
+  --stack-name demo-cluster \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides ALBInboundPort=80 AppContainerPort=3000 DBPort=3306
+```
+
+#### 3. Identity and Access Management (IAM-stack)
+Defines the IAM roles required for ECS tasks and Lambda functions.
+```bash
+aws cloudformation deploy \
+  --template-file IAM-stack.yaml \
+  --stack-name demo-iam \
+  --capabilities CAPABILITY_NAMED_IAM
+```
+
+#### 4. API & Database Stack (API-stack)
+Deploys the RDS instance, Lambda initializer, and the ECS Fargate Service.
+```bash
+aws cloudformation deploy \
+  --template-file API-stack.yaml \
+  --stack-name demo-api \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides AppContainerPort=3000 DBPort=3306
+```
+
+### Verification
+
+After deployment is complete, you can find the API endpoint in the CloudFormation Outputs of the `demo-api` stack:
+```bash
+aws cloudformation describe-stacks \
+  --stack-name demo-api \
+  --query "Stacks[0].Outputs[?OutputKey=='APIEndpoint'].OutputValue" \
+  --output text
+```
+
+### Accessing the Web UI
+The application's public UI will be accessible via the Load Balancer DNS name, which can be found in the `demo-cluster` stack outputs or via the AWS Console.
