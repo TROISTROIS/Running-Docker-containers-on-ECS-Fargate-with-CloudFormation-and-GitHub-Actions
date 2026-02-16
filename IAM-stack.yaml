@@ -13,7 +13,7 @@ Resources:
               Service: 
                 - ecs-tasks.amazonaws.com
             Action:
-              - sts.AssumeRole
+              - sts:AssumeRole
       Path: /
       Policies:
         - PolicyName: !Sub ${AWS::StackName}-Policy
