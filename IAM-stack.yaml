@@ -36,7 +36,7 @@ Resources:
                 Action:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: !ImportValue CloudWatchLogGroupArn
+                Resource: !ImportValue ECSTaskLogGroup
                 Condition:
                   StringEquals:
                     aws:SourceVpce: !ImportValue VPCInterfaceEndpointCWLogs
@@ -67,8 +67,8 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Service: [lambda.amazonaws.com]
-            Action: ['sts:AssumeRole']
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
       Policies:
@@ -80,7 +80,16 @@ Resources:
                 Action:
                   - ssm:GetParameter
                   - ssm:GetParameters
-                Resource: !Sub 'arn:aws:region:${AWS::Region}:${AWS::AccountId}:parameter/*'
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*'
+              
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !ImportValue LambdaLogGroup
+                Condition:
+                  StringEquals:
+                    aws:SourceVpce: !ImportValue VPCInterfaceEndpointCWLogs
 
 Outputs:
   ECSTaskExecutionRole: 
