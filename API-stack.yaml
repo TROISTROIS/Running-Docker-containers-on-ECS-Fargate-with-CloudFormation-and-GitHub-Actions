@@ -110,6 +110,26 @@ Resources:
         - Key: Name
           Value: !Sub ${AWS::StackName}-RDSSubnetGroup
 
+  RDS:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: '20'
+      BackupRetentionPeriod: 0
+      DBInstanceClass: db.t2.micro
+      DBInstanceIdentifier: !Sub ${AWS::StackName}-RDS
+      DBName: '{{resolve:ssm:dbName:1}}'
+      VPCSecurityGroups: 
+        - !ImportValue RDSSG
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      Engine: mysql 
+      MasterUsername: '{{resolve:ssm:dbUserName:1}}'
+      MasterUserPassword: '{{resolve:ssm:dbUserPassword:1}}'
+      MultiAZ: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-dBInstance
+
+
 Outputs:
   APIEndpoint: 
     Description: Project API Endpoint
