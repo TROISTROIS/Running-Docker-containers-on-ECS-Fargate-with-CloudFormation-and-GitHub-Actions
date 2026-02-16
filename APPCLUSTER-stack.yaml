@@ -169,7 +169,7 @@ Resources:
         - Key: Name
           Value: !Sub ${AWS::StackName}-VPCInterfaceEndpointCWLogs 
 
-  SSMInterfaceEndpoint:
+  VPCInterfaceEndpointSSM:
     Type: AWS::EC2::VPCEndpoint
     Properties:
       VpcEndpointType: Interface
@@ -331,6 +331,12 @@ Outputs:
     Value: !Ref VPCInterfaceEndpointCWLogs
     Export:
       Name: VPCInterfaceEndpointCWLogs
+
+  SSMVPCEndpoint:
+    Description: VPC Endpoint for SSM parameters
+    Value: !Ref VPCInterfaceEndpointSSM
+    Export:
+      Name: VPCInterfaceEndpointSSM
 
   ECR:
     Description: ECR Repo
