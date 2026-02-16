@@ -231,6 +231,6 @@ Outputs:
       
   PrefixListId:
     Description: Prefix List Id
-    Value: !GetAtt VPCS3GWEndpoint.PrefixListId
+    Value: !Ref VPCS3GWEndpoint
     Export:
       Name: PrefixListId
