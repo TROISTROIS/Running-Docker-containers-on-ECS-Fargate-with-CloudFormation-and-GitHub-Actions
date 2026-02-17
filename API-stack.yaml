@@ -13,13 +13,13 @@ Resources:
     Properties:
       ContainerDefinitions:
         - Name: !Sub ${AWS::StackName}-DemoContainer
-          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-ecrrepo:latest
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}cluster-ecrrepo:v1
           PortMappings:
             - ContainerPort: !Ref AppContainerPort
               Protocol: tcp
           Environment:
             - Name: DB_HOST
-              Value: !GetAtt RDS.Endpoint.Address
+              Value: !GetAtt RDSInstance.Endpoint.Address
             - Name: DB_USER
               Value: !Ref DBUserParam
             - Name: DB_PASSWORD
@@ -31,7 +31,7 @@ Resources:
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: !ImportValue ECSTaskLogGroup
+              awslogs-group: !ImportValue ECSTaskLogGroupName
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: demo-api
       Family: !Sub ${AWS::StackName}-DemoContainer
@@ -62,7 +62,7 @@ Resources:
       TaskDefinition: !Ref DemoECSTaskDefinition
       DeploymentConfiguration:
         MaximumPercent: 200
-        MinimumPercent: 70
+        MinimumHealthyPercent: 70
       NetworkConfiguration:
         AwsvpcConfiguration:
           AssignPublicIp:  DISABLED
@@ -117,10 +117,9 @@ Resources:
       Type: String
       Value: users
       Description: SSM Parameter for database name.
-      AllowedPattern: "^[a-zA-Z]{1,10}$"
+      AllowedPattern: "^[a-zA-Z]{1,20}$"
       Tags:
-        - Key: Name
-          Value: dbName
+        Name: dBName
 
   DBUserParam:
     Type: AWS::SSM::Parameter
@@ -131,20 +130,18 @@ Resources:
       Description: SSM Parameter for database user.
       AllowedPattern: "^[a-zA-Z]{1,10}$"
       Tags:
-        - Key: Name
-          Value: dbUser
+        Name: dBUser
 
   DBPasswordParam:
     Type: AWS::SSM::Parameter
     Properties:
       Name: dbUserPassword
       Type: String
-      Value: "Monday2026"
+      Value: "Monday2026!"
       Description: SSM Parameter for database password.
-      AllowedPattern: "^[a-zA-Z]{1,15}$"
+      AllowedPattern: "^[a-zA-Z0-9!]{8,30}$"
       Tags:
-        - Key: Name
-          Value: dbPassword
+        Name: dBPassword
 
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
@@ -158,18 +155,31 @@ Resources:
         - Key: Name
           Value: !Sub ${AWS::StackName}-RDSSubnetGroup
 
-  RDS:
+  RDSDBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: Parameter group for MySQL 8.0 to use native password authentication
+      Family: mysql8.0
+      Parameters:
+        default_authentication_plugin: mysql_native_password
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-rds-pg
+
+  RDSInstance:
     Type: AWS::RDS::DBInstance
     Properties:
       AllocatedStorage: '20'
       BackupRetentionPeriod: 0
-      DBInstanceClass: db.t2.micro
-      DBInstanceIdentifier: !Sub ${AWS::StackName}-rds
+      DBInstanceClass: db.t3.micro
+      DBInstanceIdentifier: !Sub ${AWS::StackName}-rds-instance
       DBName: !Ref DBNameParam
       VPCSecurityGroups: 
         - !ImportValue RDSSG
       DBSubnetGroupName: !Ref DBSubnetGroup
+      DBParameterGroupName: !Ref RDSDBParameterGroup
       Engine: mysql 
+      EngineVersion: "8.0.44"
       MasterUsername: !Ref DBUserParam
       MasterUserPassword: !Ref DBPasswordParam
       MultiAZ: true
@@ -185,7 +195,7 @@ Resources:
       Role: !ImportValue LambdaExecutionRole
       Runtime: python3.11
       Handler: index.handler
-      Timeout: 15
+      Timeout: 300
       Layers: 
         - !Sub arn:aws:lambda:${AWS::Region}:336392948345:layer:AWSSDKPandas-Python311:10
       VpcConfig:
@@ -199,33 +209,65 @@ Resources:
           Value: !Sub ${AWS::StackName}-LambdaforRDS
       Environment:
         Variables:
-          DB_HOST: !GetAtt RDS.Endpoint.Address
+          DB_HOST: !GetAtt RDSInstance.Endpoint.Address
       Code:
         ZipFile: |
           import pymysql
           import boto3
           import os
-          import cfnresponse  # Mandatory for Custom Resources
+          import urllib3
+          import json
+
+          SUCCESS = "SUCCESS"
+          FAILED = "FAILED"
+
+          http = urllib3.PoolManager()
+
+          def send(event, context, responseStatus, responseData, physicalResourceId=None, noEcho=False, reason=None):
+              responseUrl = event['ResponseURL']
+              print(responseUrl)
+
+              responseBody = {
+                  'Status': responseStatus,
+                  'Reason': reason or "See the details in CloudWatch Log Stream: " + context.log_stream_name,
+                  'PhysicalResourceId': physicalResourceId or context.log_stream_name,
+                  'StackId': event['StackId'],
+                  'RequestId': event['RequestId'],
+                  'LogicalResourceId': event['LogicalResourceId'],
+                  'NoEcho': noEcho,
+                  'Data': responseData
+              }
+
+              json_responseBody = json.dumps(responseBody)
+
+              print("Response body:\n" + json_responseBody)
+
+              headers = {
+                  'content-type': '',
+                  'content-length': str(len(json_responseBody))
+              }
+
+              try:
+                  response = http.request('PUT', responseUrl, body=json_responseBody, headers=headers)
+                  print("Status code: " + str(response.status))
+              except Exception as e:
+                  print("send(..) failed executing http.request(..): " + str(e))
 
           def handler(event, context):
-              # 1. Handle CloudFormation Delete events
-              # If the stack is being deleted, we just signal success and exit.
+              print(f"RECEIVED EVENT: {event}")
               if event['RequestType'] == 'Delete':
-                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                  send(event, context, SUCCESS, {})
                   return
 
               ssm = boto3.client('ssm')
               conn = None
               
               try:
-                  # 2. Fetch Parameters from SSM
                   db_host = os.environ['DB_HOST']
                   user = ssm.get_parameter(Name='dbUserName')['Parameter']['Value']
                   pwd = ssm.get_parameter(Name='dbUserPassword')['Parameter']['Value']
                   db_name = ssm.get_parameter(Name='dbName')['Parameter']['Value']
 
-                  print(f"Connecting to {db_host}...")
-                  
                   conn = pymysql.connect(
                       host=db_host,
                       user=user,
@@ -235,6 +277,9 @@ Resources:
                   )
 
                   with conn.cursor() as cur:
+                      cur.execute(f"ALTER USER '{user}'@'%' IDENTIFIED WITH mysql_native_password BY '{pwd}';")
+                      cur.execute("FLUSH PRIVILEGES;")
+                      
                       cur.execute("""
                           CREATE TABLE IF NOT EXISTS users (
                               id INT AUTO_INCREMENT PRIMARY KEY, 
@@ -245,27 +290,23 @@ Resources:
                       """)
                       conn.commit()
                   
-                  print("Table created successfully!")
-                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {"Message": "Tables Created"})
+                  send(event, context, SUCCESS, {"Message": "Table Created"})
 
               except Exception as e:
                   print(f"Error: {str(e)}")
-                  # 6. Signal FAILURE to CloudFormation
-                  # This stops the deployment and rolls back, preventing a broken app launch
-                  cfnresponse.send(event, context, cfnresponse.FAILED, {"Message": str(e)})
-
+                  send(event, context, FAILED, {"Message": str(e)})
               finally:
-                  if conn:
-                      conn.close()  
+                  if conn: conn.close()
 
   RunDBScripts:
     Type: Custom::DBInitializer
     DependsOn: 
-      - RDS
+      - RDSInstance
       - RDSLambda
     Properties:
       ServiceToken: !GetAtt RDSLambda.Arn
       DBName: !Ref DBNameParam
+      ServiceTimeout: 300
 
 Outputs:
   APIEndpoint: 
