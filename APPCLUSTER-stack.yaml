@@ -302,11 +302,17 @@ Outputs:
     Export:
       Name: DomainName
 
-  ECSLogGroup:
+  ECSLogGroupArn:
     Description: CloudWatch Log Group for ECS Task
     Value: !GetAtt ECSTaskLogGroup.Arn
     Export:
-      Name: ECSTaskLogGroup
+      Name: ECSTaskLogGroupArn
+
+  ECSLogGroupName:
+    Description: CloudWatch Log Group for ECS Task
+    Value: !Ref ECSTaskLogGroup
+    Export:
+      Name: ECSTaskLogGroupName
 
   LambdaLogGroup:
     Description: CloudWatch Log Group for Lambda
