@@ -7,6 +7,22 @@ Parameters:
   DBPort:
     Type: Number
 
+  DatabaseName:
+    Type: String
+    Default: users
+    Description: The database name
+  
+  DatabaseUser:
+    Type: String
+    Default: adminuser
+    Description: The database admin account username
+  
+  DatabasePassword:
+    Type: String
+    Default: Monday2026!
+    Description: The database admin account password
+    NoEcho: true
+
 Resources:
   DemoECSTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -115,7 +131,7 @@ Resources:
     Properties:
       Name: dbName
       Type: String
-      Value: users
+      Value: !Ref DatabaseName
       Description: SSM Parameter for database name.
       AllowedPattern: "^[a-zA-Z]{1,20}$"
       Tags:
@@ -126,7 +142,7 @@ Resources:
     Properties:
       Name: dbUserName
       Type: String
-      Value: adminuser
+      Value: !Ref DatabaseUser
       Description: SSM Parameter for database user.
       AllowedPattern: "^[a-zA-Z]{1,10}$"
       Tags:
@@ -137,7 +153,7 @@ Resources:
     Properties:
       Name: dbUserPassword
       Type: String
-      Value: "Monday2026!"
+      Value: !Ref DatabasePassword
       Description: SSM Parameter for database password.
       AllowedPattern: "^[a-zA-Z0-9!]{8,30}$"
       Tags:
@@ -173,15 +189,15 @@ Resources:
       BackupRetentionPeriod: 0
       DBInstanceClass: db.t3.micro
       DBInstanceIdentifier: !Sub ${AWS::StackName}-rds-instance
-      DBName: !Ref DBNameParam
+      DBName: !Ref DatabaseName
       VPCSecurityGroups: 
         - !ImportValue RDSSG
       DBSubnetGroupName: !Ref DBSubnetGroup
       DBParameterGroupName: !Ref RDSDBParameterGroup
       Engine: mysql 
       EngineVersion: "8.0.44"
-      MasterUsername: !Ref DBUserParam
-      MasterUserPassword: !Ref DBPasswordParam
+      MasterUsername: !Ref DatabaseUser
+      MasterUserPassword: !Ref DatabasePassword
       MultiAZ: true
       Tags:
         - Key: Name
@@ -191,13 +207,14 @@ Resources:
     Type: AWS::Lambda::Function 
     Properties: 
       Description: Lambda function to create a database in rds and a table 
-      FunctionName: LambdaforRDS
+      FunctionName: !Sub ${AWS::StackName}-LambdaforRDS
       Role: !ImportValue LambdaExecutionRole
       Runtime: python3.11
       Handler: index.handler
       Timeout: 300
       Layers: 
-        - !Sub arn:aws:lambda:${AWS::Region}:336392948345:layer:AWSSDKPandas-Python311:10
+        - !Sub arn:aws:lambda:${AWS::Region}:770693421928:layer:Klayers-p311-pymysql:3
+        - !Sub arn:aws:lambda:${AWS::Region}:770693421928:layer:Klayers-p311-cryptography:23
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue FargateTaskSG
@@ -210,53 +227,20 @@ Resources:
       Environment:
         Variables:
           DB_HOST: !GetAtt RDSInstance.Endpoint.Address
+          DB_USER_PARAM: !Ref DBUserParam
+          DB_PASSWORD_PARAM: !Ref DBPasswordParam
+          DB_NAME_PARAM: !Ref DBNameParam
       Code:
         ZipFile: |
           import pymysql
           import boto3
           import os
-          import urllib3
-          import json
-
-          SUCCESS = "SUCCESS"
-          FAILED = "FAILED"
-
-          http = urllib3.PoolManager()
-
-          def send(event, context, responseStatus, responseData, physicalResourceId=None, noEcho=False, reason=None):
-              responseUrl = event['ResponseURL']
-              print(responseUrl)
-
-              responseBody = {
-                  'Status': responseStatus,
-                  'Reason': reason or "See the details in CloudWatch Log Stream: " + context.log_stream_name,
-                  'PhysicalResourceId': physicalResourceId or context.log_stream_name,
-                  'StackId': event['StackId'],
-                  'RequestId': event['RequestId'],
-                  'LogicalResourceId': event['LogicalResourceId'],
-                  'NoEcho': noEcho,
-                  'Data': responseData
-              }
-
-              json_responseBody = json.dumps(responseBody)
-
-              print("Response body:\n" + json_responseBody)
-
-              headers = {
-                  'content-type': '',
-                  'content-length': str(len(json_responseBody))
-              }
-
-              try:
-                  response = http.request('PUT', responseUrl, body=json_responseBody, headers=headers)
-                  print("Status code: " + str(response.status))
-              except Exception as e:
-                  print("send(..) failed executing http.request(..): " + str(e))
+          import cfnresponse
 
           def handler(event, context):
               print(f"RECEIVED EVENT: {event}")
               if event['RequestType'] == 'Delete':
-                  send(event, context, SUCCESS, {})
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
                   return
 
               ssm = boto3.client('ssm')
@@ -264,9 +248,13 @@ Resources:
               
               try:
                   db_host = os.environ['DB_HOST']
-                  user = ssm.get_parameter(Name='dbUserName')['Parameter']['Value']
-                  pwd = ssm.get_parameter(Name='dbUserPassword')['Parameter']['Value']
-                  db_name = ssm.get_parameter(Name='dbName')['Parameter']['Value']
+                  user_param = os.environ['DB_USER_PARAM']
+                  pwd_param = os.environ['DB_PASSWORD_PARAM']
+                  name_param = os.environ['DB_NAME_PARAM']
+
+                  user = ssm.get_parameter(Name=user_param)['Parameter']['Value']
+                  pwd = ssm.get_parameter(Name=pwd_param)['Parameter']['Value']
+                  db_name = ssm.get_parameter(Name=name_param)['Parameter']['Value']
 
                   conn = pymysql.connect(
                       host=db_host,
@@ -290,11 +278,11 @@ Resources:
                       """)
                       conn.commit()
                   
-                  send(event, context, SUCCESS, {"Message": "Table Created"})
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {"Message": "Table Created"})
 
               except Exception as e:
                   print(f"Error: {str(e)}")
-                  send(event, context, FAILED, {"Message": str(e)})
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {"Message": str(e)})
               finally:
                   if conn: conn.close()
 
