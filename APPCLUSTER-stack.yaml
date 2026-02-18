@@ -257,7 +257,7 @@ Resources:
       IpProtocol: tcp
       FromPort: 443
       ToPort: 443 
-      DestinationPrefixListId: !ImportValue PrefixListId
+      CidrIp: 0.0.0.0/0
 
   ECSTaskLogGroup:
     Type: AWS::Logs::LogGroup
