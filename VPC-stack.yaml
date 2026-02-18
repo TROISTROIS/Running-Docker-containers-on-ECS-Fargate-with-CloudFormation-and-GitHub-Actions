@@ -179,22 +179,18 @@ Resources:
               - s3.GetObject
             Resource:
               - !Sub arn:aws:s3:::prod-${AWS::Region}-starport-layer-bucket/*
+          - Effect: Allow
+            Principal: '*'
+            Action: 
+              - s3:PutObject
+            Resource:
+              - !Sub arn:aws:s3:::cloudformation-custom-resource-*
       RouteTableIds:
         - !Ref PrivateRouteTable1
         - !Ref PrivateRouteTable2
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-VPCS3GatewayEndpoint
-
-  PrefixListId:
-    Type: AWS::EC2::PrefixList
-    Properties:
-      AddressFamily: IPv4
-      PrefixListName: !Sub ${AWS::StackName}-prefixlist
-      MaxEntries: 3
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-PrefixListId
   
 Outputs:
   VPC:
@@ -239,8 +235,4 @@ Outputs:
     Export:
       Name: RDSSubnet2
       
-  PrefixListId:
-    Description: Prefix List Id
-    Value: !Ref PrefixListId
-    Export:
-      Name: PrefixListId
+
