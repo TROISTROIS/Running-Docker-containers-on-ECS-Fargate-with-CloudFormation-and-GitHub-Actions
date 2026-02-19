@@ -26,11 +26,7 @@ Resources:
                   - ecr:BatchGetImage
                   - ecr:BatchCheckLayerAvailability
                 Resource: !ImportValue ECRArn
-                Condition:
-                  StringEquals:
-                    aws:SourceVpce: 
-                      - !ImportValue VPCInterfaceEndpointECRDKR
-                      - !ImportValue VPCInterfaceEndpointECRAPI
+
 
               - Effect: Allow
                 Action:
@@ -45,28 +41,19 @@ Resources:
                 Action:
                   - ecr:GetAuthorizationToken
                 Resource: "*"
-                Condition:
-                  StringEquals:
-                    aws:SourceVpce: 
-                      - !ImportValue VPCInterfaceEndpointECRDKR
-                      - !ImportValue VPCInterfaceEndpointECRAPI
+
 
               - Effect: Allow
                 Action:
                   - s3:GetObject
                 Resource: !Sub 'arn:aws:s3:::prod-${AWS::Region}-starport-layer-bucket/*'
-                Condition:
-                  StringEquals:
-                    aws:sourceVpc: !ImportValue VPC
 
               - Effect: Allow
                 Action:
                   - ssm:GetParameter
                   - ssm:GetParameters
                 Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*'
-                Condition:
-                  StringEquals:
-                    aws:SourceVpce: !ImportValue VPCInterfaceEndpointSSM
+
 
   LambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -96,9 +83,6 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: !ImportValue LambdaLogGroup
-                Condition:
-                  StringEquals:
-                    aws:SourceVpce: !ImportValue VPCInterfaceEndpointCWLogs
 
 Outputs:
   ECSTaskExecutionRole: 
