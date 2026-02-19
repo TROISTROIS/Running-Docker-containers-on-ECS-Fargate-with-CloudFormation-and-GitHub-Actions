@@ -176,7 +176,7 @@ Resources:
           - Effect: Allow
             Principal: '*'
             Action:
-              - s3.GetObject
+              - s3:GetObject
             Resource:
               - !Sub arn:aws:s3:::prod-${AWS::Region}-starport-layer-bucket/*
           - Effect: Allow
