@@ -29,7 +29,7 @@ Resources:
     Properties:
       ContainerDefinitions:
         - Name: !Sub ${AWS::StackName}-DemoContainer
-          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}cluster-ecrrepo:v1
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cluster-ecrrepo:v1
           PortMappings:
             - ContainerPort: !Ref AppContainerPort
               Protocol: tcp
@@ -37,11 +37,11 @@ Resources:
             - Name: DB_HOST
               Value: !GetAtt RDSInstance.Endpoint.Address
             - Name: DB_USER
-              Value: !Ref DBUserParam
+              Value: !Ref DatabaseUser
             - Name: DB_PASSWORD
-              Value: !Ref DBPasswordParam
+              Value: !Ref DatabasePassword
             - Name: DB_NAME
-              Value: !Ref DBNameParam
+              Value: !Ref DatabaseName
             - Name: DB_PORT
               Value: !Ref DBPort
           LogConfiguration:
@@ -121,7 +121,7 @@ Resources:
       Conditions: 
         - Field: path-pattern
           Values:
-            - /api/users*
+            - /*
       Actions:
         - TargetGroupArn: !Ref ALBTargetGroup
           Type: forward 
@@ -299,6 +299,6 @@ Resources:
 Outputs:
   APIEndpoint: 
     Description: Project API Endpoint
-    Value: !Join ['',['http://', !ImportValue DomainName, '/api/users']]
+    Value: !Join ['',['http://', !ImportValue DomainName ]]
     Export:
       Name: ProjectAPIEndpoint
