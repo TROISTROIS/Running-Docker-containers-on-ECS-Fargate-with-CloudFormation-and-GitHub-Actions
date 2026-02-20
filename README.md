@@ -161,3 +161,5 @@ aws cloudformation describe-stacks \
 
 ### Accessing the Web UI
 The application's public UI will be accessible via the Load Balancer DNS name, which can be found in the `demo-cluster` stack outputs or via the AWS Console.
+
+### GitHub Actions
