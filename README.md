@@ -78,7 +78,7 @@ To run this application using the pre-built image from Docker Hub:
         ```
 
 ### Access the application:
-    Open your browser and navigate to [http://localhost:3000](http://localhost:3000).
+    Open your browser and navigate to (http://localhost:3000).
 
 ## AWS Deployment
 
