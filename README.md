@@ -109,7 +109,6 @@ Sets up the ECS Cluster, ALB, Security Groups, ECR Repository, and VPC Endpoints
 aws cloudformation deploy \
   --template-file APPCLUSTER-stack.yaml \
   --stack-name demo-cluster \
-  --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides ALBInboundPort=80 AppContainerPort=3000 DBPort=3306
 ```
 
@@ -147,7 +146,6 @@ Deploys the RDS instance, Lambda initializer, and the ECS Fargate Service.
 aws cloudformation deploy \
   --template-file API-stack.yaml \
   --stack-name demo-api \
-  --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides AppContainerPort=3000 DBPort=3306
 ```
 
