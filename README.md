@@ -163,3 +163,33 @@ aws cloudformation describe-stacks \
 The application's public UI will be accessible via the Load Balancer DNS name, which can be found in the `demo-cluster` stack outputs or via the AWS Console.
 
 ### GitHub Actions
+
+This project uses GitHub Actions for Continuous Integration and Continuous Deployment (CI/CD). The workflow is defined in `.github/workflows/deploy.yaml`.
+
+#### Workflow Overview
+
+![GitHub Actions Workflow](github%20actions.png)
+
+1.  **Trigger:** The workflow is triggered on every push to the `main` branch.
+2.  **Authentication:** It uses AWS OIDC to securely authenticate with AWS without storing long-lived credentials.
+3.  **Build & Push:**
+    -   Logs into Amazon ECR.
+    -   Builds the Docker image from the `Dockerfile`.
+    -   Tags the image with the GitHub commit SHA and `latest`.
+    -   Pushes the image to the Amazon ECR repository.
+4.  **Deploy:**
+    -   Updates the ECS task definition with the new image URI.
+    -   Deploys the updated task definition to the ECS Fargate service.
+    -   Waits for the service to reach a stable state.
+
+#### Required Secrets
+
+To run this workflow, the following secrets must be configured in the GitHub repository:
+
+- `AWS_REGION`: The AWS region where resources are deployed.
+- `AWS_ACCOUNT_ID`: Your AWS Account ID.
+
+---
+
+**This concludes the project. The application is now fully containerized, deployed on AWS ECS Fargate, and automated with GitHub Actions.**
+
